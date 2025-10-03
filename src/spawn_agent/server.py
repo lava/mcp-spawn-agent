@@ -1,10 +1,11 @@
 import signal
 import atexit
+import subprocess
 from fastmcp import FastMCP
 from spawn_agent.cgroup import cleanup_systemd_unit, list_spawned_units
 from spawn_agent.terminal import initialize
-from spawn_agent.spawn_subagent import spawn_subagent
-from spawn_agent.spawn_session import spawn_session as spawn_session_impl
+from spawn_agent.spawn_subagent import spawn_subagent as spawn_subagent_impl
+from spawn_agent.spawn_session import spawn_session as spawn_session_impl, set_claude_command
 
 mcp = FastMCP("spawn-agent")
 
@@ -60,7 +61,7 @@ def spawn_subagent(agent_name: str, directory: str, task: str) -> str:
         directory: The directory where the agent should operate
         task: The task for the agent to perform
     """
-    status_message, unit_name = spawn_subagent(agent_name, directory, task)
+    status_message, unit_name = spawn_subagent_impl(agent_name, directory, task)
 
     # Track the spawned unit for cleanup if successful
     if unit_name:
@@ -87,10 +88,50 @@ def spawn_session(directory: str, driver: str = "claude", model: str | None = No
     return status_message
 
 
+def resolve_claude_command() -> str:
+    """Resolve the 'claude' shell alias to the actual command"""
+    try:
+        # Use bash to expand the alias
+        result = subprocess.run(
+            ["bash", "-i", "-c", "type -a claude"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+
+        if result.returncode == 0:
+            # Parse output like "claude is aliased to `ccr code'"
+            for line in result.stdout.splitlines():
+                if "is aliased to" in line:
+                    # Extract the command from the alias
+                    alias_def = line.split("is aliased to", 1)[1].strip()
+                    # Remove backticks if present
+                    return alias_def.strip("`'\"")
+
+        # Fall back to checking if 'claude' exists as a command
+        which_result = subprocess.run(
+            ["which", "claude"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if which_result.returncode == 0:
+            return which_result.stdout.strip()
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+    # Default fallback
+    return "claude"
+
+
 def main():
     # Find available terminal emulator at startup
     if not initialize():
         print("Warning: No suitable terminal emulator found. spawn_agent functionality will be limited.")
+
+    # Resolve the claude command/alias
+    claude_cmd = resolve_claude_command()
+    set_claude_command(claude_cmd)
 
     mcp.run()
 

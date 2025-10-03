@@ -2,6 +2,15 @@ from pathlib import Path
 from typing import Optional
 from spawn_agent.terminal import execute_in_terminal
 
+# Will be set by initialize() to the resolved claude command
+_claude_command: str = "claude"
+
+
+def set_claude_command(command: str) -> None:
+    """Set the resolved claude command to use for spawning sessions"""
+    global _claude_command
+    _claude_command = command
+
 
 def spawn_session(directory: str, driver: str = "claude", model: Optional[str] = None) -> tuple[str, str]:
     """
@@ -28,8 +37,11 @@ def spawn_session(directory: str, driver: str = "claude", model: Optional[str] =
         return (f"Error: model parameter can only be used with driver 'claude', not '{driver}'", "")
 
     # Construct the command based on driver and model
-    if driver == "claude" and model:
-        cmd_str = f"ccr code --model {model}"
+    if driver == "claude":
+        if model:
+            cmd_str = f"{_claude_command} --model {model}"
+        else:
+            cmd_str = _claude_command
     else:
         cmd_str = driver
 
