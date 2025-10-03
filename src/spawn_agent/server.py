@@ -80,8 +80,10 @@ def spawn_session(directory: str, driver: str = "claude", model: str | None = No
 
     Args:
         directory: The directory where the session should run
-        driver: The CLI driver to use - "claude", "codex", or "crush" (default: "claude")
-        model: Model name to use with "claude" driver (suggested: "qwen", "sonnet", "deepseek")
+        driver: The CLI driver to use - "claude", "codex", or "crush" (default: "claude").
+                Usually left empty; only specify on explicit user request.
+        model: Model name to use with "claude" driver (suggested: "qwen", "sonnet", "deepseek").
+               Usually left empty; only specify on explicit user request.
 
     Returns:
         Status message about the spawned session
