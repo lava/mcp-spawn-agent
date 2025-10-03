@@ -71,6 +71,28 @@ def spawn_agent(agent_name: str, directory: str, task: str) -> str:
     return status_message
 
 
+@mcp.tool()
+def spawn_session(directory: str) -> str:
+    """
+    Spawn a new Claude session in a terminal window
+
+    Args:
+        directory: The directory where the session should run
+
+    Returns:
+        Status message about the spawned session
+    """
+    from spawn_agent.spawn_subagent import spawn_session as spawn_session_impl
+    status_message, unit_name = spawn_session_impl(directory)
+
+    # Track the spawned unit for cleanup if successful
+    if unit_name:
+        global spawned_units
+        spawned_units.append(unit_name)
+
+    return status_message
+
+
 def main():
     # Find available terminal emulator at startup
     if not initialize():

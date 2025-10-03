@@ -129,3 +129,52 @@ def spawn_subagent(agent_name: str, directory: str, task: str) -> tuple[str, str
 
     except Exception as e:
         return (f"Error spawning agent: {e}", "")
+
+
+def spawn_session(directory: str) -> tuple[str, str]:
+    """
+    Spawn a new Claude session in a terminal window
+
+    Args:
+        directory: The directory where the session should run
+
+    Returns:
+        Tuple of (status_message, unit_name) where unit_name is empty string on error
+    """
+    try:
+        # Resolve the target directory
+        target_dir = Path(directory).resolve()
+        if not target_dir.exists():
+            return (f"Error: Directory '{directory}' does not exist", "")
+
+        # Check if terminal is available
+        if TERMINAL_CMD is None:
+            return ("Error: No suitable terminal emulator found. Please install gnome-terminal, konsole, xterm, or another terminal emulator.", "")
+
+        # Prepare the claude command string
+        claude_cmd_str = "/home/benno/.claude/local/claude"
+
+        # Build terminal command with placeholders filled
+        terminal_cmd = []
+        for part in TERMINAL_CMD:
+            if "{dir}" in part:
+                terminal_cmd.append(part.replace("{dir}", str(target_dir)))
+            elif "{cmd}" in part:
+                terminal_cmd.append(part.replace("{cmd}", claude_cmd_str))
+            else:
+                terminal_cmd.append(part)
+
+        # Execute the terminal emulator using systemd-run
+        try:
+            systemd_unit = execute_with_systemd_run(
+                terminal_cmd,
+                working_directory=str(target_dir)
+            )
+            unit_name = systemd_unit.unit_name
+        except OSError as e:
+            return (f"Error: Failed to execute terminal with systemd-run: {e}", "")
+
+        return (f"Claude session spawned successfully in '{directory}' (Unit: {unit_name})", unit_name)
+
+    except Exception as e:
+        return (f"Error spawning session: {e}", "")
