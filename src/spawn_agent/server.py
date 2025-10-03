@@ -2,7 +2,9 @@ import signal
 import atexit
 from fastmcp import FastMCP
 from spawn_agent.cgroup import cleanup_systemd_unit, list_spawned_units
-from spawn_agent.spawn_subagent import initialize, spawn_subagent
+from spawn_agent.terminal import initialize
+from spawn_agent.spawn_subagent import spawn_subagent
+from spawn_agent.spawn_session import spawn_session as spawn_session_impl
 
 mcp = FastMCP("spawn-agent")
 
@@ -82,14 +84,8 @@ def spawn_session(directory: str) -> str:
     Returns:
         Status message about the spawned session
     """
-    from spawn_agent.spawn_subagent import spawn_session as spawn_session_impl
     status_message, unit_name = spawn_session_impl(directory)
-
-    # Track the spawned unit for cleanup if successful
-    if unit_name:
-        global spawned_units
-        spawned_units.append(unit_name)
-
+    # Note: We don't track spawn_session units for cleanup - they persist independently
     return status_message
 
 
