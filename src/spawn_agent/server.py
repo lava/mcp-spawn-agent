@@ -51,17 +51,14 @@ signal.signal(signal.SIGINT, handle_signal)
 
 
 @mcp.tool()
-def spawn_agent(agent_name: str, directory: str, task: str) -> str:
+def spawn_subagent(agent_name: str, directory: str, task: str) -> str:
     """
-    Spawn an agent to perform a task in a specific directory
+    Spawn an subagent to perform a task in a specific directory
 
     Args:
         agent_name: The name of the agent to spawn
         directory: The directory where the agent should operate
         task: The task for the agent to perform
-
-    Returns:
-        Status message about the spawned agent
     """
     status_message, unit_name = spawn_subagent(agent_name, directory, task)
 
@@ -76,7 +73,7 @@ def spawn_agent(agent_name: str, directory: str, task: str) -> str:
 @mcp.tool()
 def spawn_session(directory: str, driver: str = "claude", model: str | None = None) -> str:
     """
-    Spawn a new session in a terminal window
+    Spawn a new claude session in another terminal window
 
     Args:
         directory: The directory where the session should run
@@ -84,9 +81,6 @@ def spawn_session(directory: str, driver: str = "claude", model: str | None = No
                 Usually left empty; only specify on explicit user request.
         model: Model name to use with "claude" driver (suggested: "qwen", "sonnet", "deepseek").
                Usually left empty; only specify on explicit user request.
-
-    Returns:
-        Status message about the spawned session
     """
     status_message, unit_name = spawn_session_impl(directory, driver, model)
     # Note: We don't track spawn_session units for cleanup - they persist independently
