@@ -74,17 +74,19 @@ def spawn_agent(agent_name: str, directory: str, task: str) -> str:
 
 
 @mcp.tool()
-def spawn_session(directory: str) -> str:
+def spawn_session(directory: str, driver: str = "claude", model: str | None = None) -> str:
     """
-    Spawn a new Claude session in a terminal window
+    Spawn a new session in a terminal window
 
     Args:
         directory: The directory where the session should run
+        driver: The CLI driver to use - "claude", "codex", or "crush" (default: "claude")
+        model: Model name to use with "claude" driver (suggested: "qwen", "sonnet", "deepseek")
 
     Returns:
         Status message about the spawned session
     """
-    status_message, unit_name = spawn_session_impl(directory)
+    status_message, unit_name = spawn_session_impl(directory, driver, model)
     # Note: We don't track spawn_session units for cleanup - they persist independently
     return status_message
 
