@@ -9,10 +9,10 @@ TERMINAL_CMD = None
 def find_available_terminal():
     """Find the first available terminal emulator on the system"""
     terminal_options = [
-        ["gnome-terminal", "--working-directory", "{dir}", "--", "bash", "-c", "{cmd}"],
-        ["konsole", "--workdir", "{dir}", "-e", "bash", "-c", "{cmd}; read -p 'Press Enter to close...'"],
-        ["xterm", "-e", "cd '{dir}' && {cmd}; read -p 'Press Enter to close...'"],
-        ["x-terminal-emulator", "-e", "bash -c 'cd \"{dir}\" && {cmd}; read -p \"Press Enter to close...\"'"]
+        ["gnome-terminal", "--working-directory", "{dir}", "--", "bash", "-c", "{cmd}; exec bash"],
+        ["konsole", "--workdir", "{dir}", "-e", "bash", "-c", "{cmd}; exec bash"],
+        ["xterm", "-e", "cd '{dir}' && {cmd}; exec bash"],
+        ["x-terminal-emulator", "-e", "bash -c 'cd \"{dir}\" && {cmd}; exec bash'"]
     ]
 
     for terminal_template in terminal_options:
