@@ -72,7 +72,7 @@ def spawn_subagent(agent_name: str, directory: str, task: str) -> str:
 
 
 @mcp.tool()
-def spawn_session(directory: str, driver: str = "claude", model: str | None = None) -> str:
+def spawn_session(directory: str, driver: str = "claude", model: str | None = None, background: bool = False) -> str:
     """
     Spawn a new claude session in another terminal window
 
@@ -82,8 +82,9 @@ def spawn_session(directory: str, driver: str = "claude", model: str | None = No
                 Usually left empty; only specify on explicit user request.
         model: Model name to use with "claude" driver (suggested: "qwen", "sonnet", "deepseek").
                Usually left empty; only specify on explicit user request.
+        background: If False, terminates the current session after spawning (default: False)
     """
-    status_message, unit_name = spawn_session_impl(directory, driver, model)
+    status_message, unit_name = spawn_session_impl(directory, driver, model, background)
     # Note: We don't track spawn_session units for cleanup - they persist independently
     return status_message
 

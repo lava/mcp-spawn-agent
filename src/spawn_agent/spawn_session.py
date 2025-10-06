@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Optional
-from spawn_agent.terminal import execute_in_terminal
+from spawn_agent.terminal import execute_in_terminal, close_current_terminal
 
 # Will be set by initialize() to the resolved claude command
 _claude_command: str = "claude"
@@ -12,7 +12,7 @@ def set_claude_command(command: str) -> None:
     _claude_command = command
 
 
-def spawn_session(directory: str, driver: str = "claude", model: Optional[str] = None) -> tuple[str, str]:
+def spawn_session(directory: str, driver: str = "claude", model: Optional[str] = None, background: bool = False) -> tuple[str, str]:
     """
     Spawn a new session in a terminal window
 
@@ -20,6 +20,7 @@ def spawn_session(directory: str, driver: str = "claude", model: Optional[str] =
         directory: The directory where the session should run
         driver: The CLI driver to use - "claude", "codex", or "crush" (default: "claude")
         model: Model name to use with "claude" driver (e.g., "qwen", "sonnet", "deepseek")
+        background: If False, terminates the current session after spawning (default: False)
 
     Returns:
         Tuple of (status_message, unit_name) where unit_name is empty string on error
@@ -54,5 +55,9 @@ def spawn_session(directory: str, driver: str = "claude", model: Optional[str] =
     session_desc = f"{driver}"
     if model:
         session_desc += f" (model: {model})"
+
+    # If background is False, close the current terminal window
+    if not background:
+        close_current_terminal()
 
     return (f"Session '{session_desc}' spawned successfully in '{directory}' (Unit: {unit_name})", unit_name)

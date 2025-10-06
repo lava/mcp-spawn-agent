@@ -1,38 +1,124 @@
+import os
+import signal
 import subprocess
 from pathlib import Path
+from typing import Protocol, Optional
 from spawn_agent.cgroup import execute_with_systemd_run
 
-# Global terminal command - selected once at startup
-TERMINAL_CMD = None
+
+class Terminal(Protocol):
+    """Protocol for terminal emulator implementations"""
+
+    @staticmethod
+    def detect() -> bool:
+        """Check if this terminal emulator is available"""
+        ...
+
+    @staticmethod
+    def spawn(command: str, directory: str) -> list[str]:
+        """
+        Build the command to spawn a new terminal window.
+
+        Returns a list of command arguments to execute.
+        """
+        ...
+
+    @staticmethod
+    def close_current() -> bool:
+        """
+        Close the current terminal window.
+
+        Returns True if successfully closed, False otherwise.
+        """
+        ...
 
 
-def find_available_terminal():
-    """Find the first available terminal emulator on the system"""
-    terminal_options = [
-        ["gnome-terminal", "--working-directory", "{dir}", "--", "bash", "-c", "{cmd}; exec bash"],
-        ["konsole", "--workdir", "{dir}", "-e", "bash", "-c", "{cmd}; exec bash"],
-        ["xterm", "-e", "cd '{dir}' && {cmd}; exec bash"],
-        ["x-terminal-emulator", "-e", "bash -c 'cd \"{dir}\" && {cmd}; exec bash'"]
-    ]
+class GnomeTerminal:
+    """Implementation for gnome-terminal"""
 
-    for terminal_template in terminal_options:
+    @staticmethod
+    def detect() -> bool:
+        """Check if gnome-terminal is available"""
         try:
-            subprocess.run([terminal_template[0], "--help"],
-                         stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL,
-                         timeout=1)
-            return terminal_template
+            subprocess.run(
+                ["gnome-terminal", "--help"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=1
+            )
+            return True
         except (FileNotFoundError, subprocess.TimeoutExpired):
-            continue
+            return False
 
-    return None
+    @staticmethod
+    def spawn(command: str, directory: str) -> list[str]:
+        """Build command to spawn a new gnome-terminal window"""
+        return [
+            "gnome-terminal",
+            "--working-directory", directory,
+            "--", "bash", "-c", f"{command}; exec bash"
+        ]
+
+    @staticmethod
+    def close_current() -> bool:
+        """Close the current gnome-terminal tab/window by killing the shell"""
+        try:
+            # Walk up the process tree to find the bash shell started by gnome-terminal
+            # Process tree: gnome-terminal-server -> bash -> claude -> ... -> python (MCP server)
+            current_pid = os.getpid()
+
+            # Walk up to find bash process
+            for _ in range(10):  # Limit search depth
+                # Get parent PID and command
+                result = subprocess.run(
+                    ['ps', '-o', 'ppid=,comm=', '-p', str(current_pid)],
+                    capture_output=True,
+                    text=True,
+                    timeout=1
+                )
+                if result.returncode != 0:
+                    return False
+
+                parts = result.stdout.strip().split(None, 1)
+                if len(parts) < 2:
+                    return False
+
+                parent_pid = int(parts[0])
+                comm = parts[1]
+
+                # If we found bash, kill it with SIGHUP
+                if comm in ('bash', 'sh', 'zsh', 'fish'):
+                    os.kill(parent_pid, signal.SIGHUP)
+                    return True
+
+                # Move up to parent
+                current_pid = parent_pid
+
+            return False
+        except (subprocess.TimeoutExpired, FileNotFoundError, ProcessLookupError, ValueError):
+            return False
 
 
-def initialize():
-    """Initialize the terminal command at startup"""
-    global TERMINAL_CMD
-    TERMINAL_CMD = find_available_terminal()
-    return TERMINAL_CMD is not None
+# Registry of terminal implementations - ordered by preference
+TERMINAL_IMPLEMENTATIONS: list[type[Terminal]] = [
+    GnomeTerminal,
+    # Add more terminal implementations here
+]
+
+# Global terminal implementation - selected once at startup
+TERMINAL_IMPL: Optional[type[Terminal]] = None
+
+
+def initialize() -> bool:
+    """Initialize the terminal implementation at startup"""
+    global TERMINAL_IMPL
+
+    for terminal_class in TERMINAL_IMPLEMENTATIONS:
+        if terminal_class.detect():
+            TERMINAL_IMPL = terminal_class
+            return True
+
+    return False
 
 
 def execute_in_terminal(command: str, directory: str) -> tuple[str, str]:
@@ -53,18 +139,11 @@ def execute_in_terminal(command: str, directory: str) -> tuple[str, str]:
             return (f"Error: Directory '{directory}' does not exist", "")
 
         # Check if terminal is available
-        if TERMINAL_CMD is None:
-            return ("Error: No suitable terminal emulator found. Please install gnome-terminal, konsole, xterm, or another terminal emulator.", "")
+        if TERMINAL_IMPL is None:
+            return ("Error: No suitable terminal emulator found. Please install gnome-terminal or another supported terminal emulator.", "")
 
-        # Build terminal command with placeholders filled
-        terminal_cmd = []
-        for part in TERMINAL_CMD:
-            if "{dir}" in part:
-                terminal_cmd.append(part.replace("{dir}", str(target_dir)))
-            elif "{cmd}" in part:
-                terminal_cmd.append(part.replace("{cmd}", command))
-            else:
-                terminal_cmd.append(part)
+        # Build terminal command using the implementation
+        terminal_cmd = TERMINAL_IMPL.spawn(command, str(target_dir))
 
         # Execute the terminal emulator using systemd-run
         try:
@@ -80,3 +159,15 @@ def execute_in_terminal(command: str, directory: str) -> tuple[str, str]:
 
     except Exception as e:
         return (f"Error executing in terminal: {e}", "")
+
+
+def close_current_terminal() -> bool:
+    """
+    Close the current terminal window.
+
+    Returns True if successfully closed, False otherwise.
+    """
+    if TERMINAL_IMPL is None:
+        return False
+
+    return TERMINAL_IMPL.close_current()
