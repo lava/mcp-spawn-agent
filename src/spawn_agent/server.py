@@ -4,8 +4,8 @@ import subprocess
 from fastmcp import FastMCP
 from spawn_agent.cgroup import cleanup_systemd_unit, list_spawned_units
 from spawn_agent.terminal import initialize
-from spawn_agent.spawn_subagent import spawn_subagent as spawn_subagent_impl
-from spawn_agent.spawn_session import spawn_session as spawn_session_impl, set_claude_command
+from spawn_agent.spawn_subagent import spawn_subagent as spawn_subagent_impl, set_claude_command as set_subagent_claude_command
+from spawn_agent.spawn_session import spawn_session as spawn_session_impl, set_claude_command as set_session_claude_command
 
 mcp = FastMCP("spawn-agent")
 
@@ -52,12 +52,13 @@ signal.signal(signal.SIGINT, handle_signal)
 
 
 @mcp.tool()
-def spawn_subagent(agent_name: str, directory: str, task: str) -> str:
+def spawn_subagent(directory: str, task: str, agent_name: str = "general-purpose") -> str:
     """
-    Spawn an subagent to perform a task in a specific directory
+    Spawn a subagent to perform a task in a specific directory
 
     Args:
-        agent_name: The name of the agent to spawn
+        agent_name: The name of the agent to spawn. Built-in agents include
+                    'general-purpose', 'Explore', and 'Plan'. Default: 'general-purpose'
         directory: The directory where the agent should operate
         task: The task for the agent to perform
     """
@@ -130,9 +131,10 @@ def main():
     if not initialize():
         print("Warning: No suitable terminal emulator found. spawn_agent functionality will be limited.")
 
-    # Resolve the claude command/alias
+    # Resolve the claude command/alias and set it for both modules
     claude_cmd = resolve_claude_command()
-    set_claude_command(claude_cmd)
+    set_subagent_claude_command(claude_cmd)
+    set_session_claude_command(claude_cmd)
 
     mcp.run()
 
